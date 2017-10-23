@@ -1,0 +1,43 @@
+const passport = require('passport');
+//add one for facebook or email sign up if you want
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const mongoose = require('mongoose');
+const keys = require('../config/keys');
+
+const User = mongoose.model('users');
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser((id, done) =>{
+  User.findById(id).then(user => {
+    done(null, user);
+  });
+});
+//here is where you call it if you want to add facebook or email sign up
+//-> clientID
+//-> clientsecret
+//-> this is with info@owneroom.com google account
+passport.use(
+  new GoogleStrategy({
+  clientID: keys.googleClientID,
+  clientSecret: keys.googleClientSecret,
+  callbackURL: '/auth/google/callback'
+},
+  (accessToken, refreshToken, profile, done) => {
+    User.findOne({ googleId: profile.id})
+      .then((existingUser) => {
+        if (existingUser){
+          //we already have a record with the given profile ID
+          done(null, existingUser);
+        } else {
+          //we don't have a user record with this ID, make a new record
+          new User({ googleId: profile.id})
+            .save()
+            .then(user => done(null, user));
+        }
+      });
+    }
+  )
+);
